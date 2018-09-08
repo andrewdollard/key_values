@@ -1,14 +1,18 @@
 import cmd
 
 class KVCli(cmd.Cmd):
-    def preloop(self):
-        print("hello")
+
+    data = {}
 
     def do_set(self, pair):
-        print("setting")
+        key, value = pair.split('=')
+        self.data[key] = value
 
-    def do_get(self, pair):
-        print("getting")
+    def do_get(self, key):
+        if key in self.data:
+            print(self.data[key])
+        else:
+            print('not found')
 
 interpreter = KVCli()
 interpreter.cmdloop()
