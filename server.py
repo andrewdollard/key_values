@@ -41,7 +41,7 @@ while True:
             resp = data[arg] + '\n'
             clientsocket.send(bytes(resp, 'utf-8'))
         else:
-            clientsocket.send('not found\n')
+            clientsocket.send(bytes('not found\n', 'utf-8'))
 
     if cmd == 'set':
         data = load_data()
