@@ -1,9 +1,11 @@
 import os
 import socket
+from net import receive
 
 s = socket.socket(socket.AF_INET)
 s.bind(('localhost', 1234))
 s.listen(5)
+
 
 def load_data():
     data = {}
@@ -24,16 +26,10 @@ def store_data(data):
 
 while True:
     (clientsocket, address) = s.accept()
-    print(f"request from {address}")
+    request = receive(clientsocket)
+    print(f"request from {address}: {request}")
 
-    response = ""
-    while True:
-        chunk = clientsocket.recv(4096)
-        response += chunk.decode('utf-8')
-        if response.endswith('\n'):
-            break
-    print(response)
-    cmd, arg = response.rstrip().split(' ')
+    cmd, arg = request.split(' ')
 
     if cmd == 'get':
         data = load_data()

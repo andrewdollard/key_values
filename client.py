@@ -1,5 +1,6 @@
 import cmd
 import socket
+from net import receive
 
 class KVCli(cmd.Cmd):
 
@@ -17,14 +18,8 @@ class KVCli(cmd.Cmd):
         req = 'get {}\n'.format(key)
         s.send(bytes(req, 'utf-8'))
 
-        response = ""
-        while True:
-            chunk = s.recv(4096)
-            response += chunk.decode('utf-8')
-            if response.endswith('\n'):
-                break
-        s.close
-        print(response.rstrip())
+        response = receive(s)
+        print(response)
 
 interpreter = KVCli()
 interpreter.cmdloop()
