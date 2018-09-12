@@ -1,2 +1,4 @@
 env
 data_file
+.cache
+__pycache__
