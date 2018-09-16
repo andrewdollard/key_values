@@ -1,8 +1,8 @@
 def receive(socket):
-    response = ""
+    response = b''
     while True:
         chunk = socket.recv(4096)
-        response += chunk.decode('utf-8')
-        if response.endswith('\n'):
+        response += chunk
+        if len(chunk) < 4096:
             break
-    return response.rstrip()
+    return response
