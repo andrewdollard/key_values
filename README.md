@@ -35,5 +35,8 @@ n bytes: value
 How does replica know it's now leader?
 How does revived dead leader know it's now a replica?
 
-How does a leader-turned-follow request an update?
+How does a leader-turned-follower request an update?
+  starts up
+  connects to replica, if set
+  asks replica for all updates beyond last known LSN
 

@@ -11,6 +11,32 @@ print(f"replica port is {REPLICA_PORT}")
 
 DATA_FILE = f"datafile_{PORT}"
 
+def store_data(data):
+    with open(DATA_FILE, 'wb') as data_file:
+        for key in data:
+            lsn = data[key]['lsn']
+            value = data[key]['value']
+
+            data_file.write(key)
+            bytes_in_lsn = (lsn.bit_length() + 7) // 8
+            lsnb = lsn.to_bytes(bytes_in_lsn, byteorder='big')
+            data_file.write(lsnb)
+            data_file.write(b':')
+
+            lv = len(value)
+            bytes_in_len = (lv.bit_length() + 7) // 8
+            lb = lv.to_bytes(bytes_in_len, byteorder='big')
+
+            data_file.write(lb)
+            data_file.write(b':')
+            data_file.write(value)
+
+def load_data():
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, 'rb') as data_file:
+            return read_data(data_file)
+    return {}
+
 def read_data(data_file):
     data={}
     while True:
@@ -25,33 +51,23 @@ def read_data(data_file):
                 break
             else:
                 bytes += b
+        lsn = int.from_bytes(bytes, byteorder='big')
 
+        bytes = []
+        while True:
+            b = data_file.read(1)
+            if b == b':':
+                break
+            else:
+                bytes += b
         value_len = int.from_bytes(bytes, byteorder='big')
-        data[key] = data_file.read(value_len)
+
+        data[key] = {
+            'lsn': lsn,
+            'value': data_file.read(value_len),
+        }
+
     return data
-
-
-def load_data():
-    if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, 'rb') as data_file:
-            return read_data(data_file)
-    return {}
-
-
-def store_data(data):
-    with open(DATA_FILE, 'wb') as data_file:
-        for key in data:
-            value = data[key]
-            data_file.write(key)
-
-            lv = len(value)
-            bytes_in_len = (lv.bit_length() + 7) // 8
-            lb = lv.to_bytes(bytes_in_len, byteorder='big')
-
-            data_file.write(lb)
-            data_file.write(b':')
-            data_file.write(value)
-
 
 def parse_request(req):
     success = False
@@ -90,14 +106,20 @@ while True:
     if command == 'get':
         data = load_data()
         if key in data:
-            resp = data[key]
+            resp = data[key]['value']
             clientsocket.send(resp)
         else:
             clientsocket.send(bytes('not found\n', 'utf-8'))
 
     elif command == 'set':
         data = load_data()
-        data[key] = value
+
+        lsn = max([data[k]['lsn'] for k in data]) + 1 if len(data) > 0 else 1
+        data[key] = {
+            'lsn': lsn,
+            'value': value,
+        }
+
         store_data(data)
 
         if REPLICA_PORT is not None:
