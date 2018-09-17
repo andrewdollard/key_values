@@ -28,3 +28,12 @@ commands:
 2 bytes: delimiter
 n bytes: value
 2 bytes: delimiter
+
+
+## Replication issues
+
+How does replica know it's now leader?
+How does revived dead leader know it's now a replica?
+
+How does a leader-turned-follow request an update?
+
