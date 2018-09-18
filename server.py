@@ -9,7 +9,9 @@ REPLICA_PORT = int(sys.argv[2]) if len(sys.argv) > 2 else None
 print(f"port is {PORT}")
 print(f"replica port is {REPLICA_PORT}")
 
-DATA_FILE = f"datafile_{PORT}"
+DATA_FILE = f"data/{PORT}"
+if not os.path.exists('data'):
+    os.makedirs('data')
 
 def store_data(data):
     with open(DATA_FILE, 'wb') as data_file:
