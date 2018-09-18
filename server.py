@@ -2,6 +2,7 @@ import os
 import socket
 import sys
 from net import receive
+from serialization import serialize_record, serialize_catchup
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 1234
 REPLICA_PORT = int(sys.argv[2]) if len(sys.argv) > 2 else None
@@ -16,22 +17,8 @@ if not os.path.exists('data'):
 def store_data(data):
     with open(DATA_FILE, 'wb') as data_file:
         for key in data:
-            lsn = data[key]['lsn']
-            value = data[key]['value']
-
-            data_file.write(key)
-            bytes_in_lsn = (lsn.bit_length() + 7) // 8
-            lsnb = lsn.to_bytes(bytes_in_lsn, byteorder='big')
-            data_file.write(lsnb)
-            data_file.write(b':')
-
-            lv = len(value)
-            bytes_in_len = (lv.bit_length() + 7) // 8
-            lb = lv.to_bytes(bytes_in_len, byteorder='big')
-
-            data_file.write(lb)
-            data_file.write(b':')
-            data_file.write(value)
+            b = serialize_record(key, data[key]['value'], data[key]['lsn'])
+            data_file.write(b)
 
 def load_data():
     if os.path.exists(DATA_FILE):

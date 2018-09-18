@@ -1,22 +1,7 @@
 import cmd
 import socket
+from serialization import serialize_set, serialize_get
 from net import receive
-from hashlib import blake2b as blake
-
-def serialize_set(key, value):
-    hasher = blake(digest_size=20)
-    hasher.update(bytes(key, 'utf-8'))
-    key_bytes = hasher.digest()
-    value_bytes = bytes(value, 'utf-8')
-
-    return b'\x00' + key_bytes + value_bytes
-
-def serialize_get(key):
-    hasher = blake(digest_size=20)
-    hasher.update(bytes(key, 'utf-8'))
-    key_bytes = hasher.digest()
-
-    return b'\x01' + key_bytes
 
 def open_socket():
     s = socket.socket(socket.AF_INET)
