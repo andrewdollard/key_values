@@ -1,3 +1,5 @@
+import constants
+from enum import Enum
 from hashlib import blake2b as blake
 
 KEY_LENGTH = 20
@@ -8,19 +10,22 @@ def serialize_set(key, value):
     key_bytes = hasher.digest()
     value_bytes = bytes(value, 'utf-8')
 
-    return b'\x00' + key_bytes + value_bytes
+    return constants.SET + key_bytes + value_bytes
 
 def serialize_get(key):
     hasher = blake(digest_size=KEY_LENGTH)
     hasher.update(bytes(key, 'utf-8'))
     key_bytes = hasher.digest()
 
-    return b'\x01' + key_bytes
+    return constants.GET + key_bytes
+
+def deserialize_get_response(resp):
+    return resp[1:]
 
 def serialize_catchup(lsn):
     bytes_in_lsn = (lsn.bit_length() + 7) // 8
     lsnb = lsn.to_bytes(bytes_in_lsn, byteorder='big')
-    return b'\x02' + lsnb
+    return constants.CATCHUP + lsnb
 
 def serialize_record(key, value, lsn):
     ba = bytearray()

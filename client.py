@@ -1,4 +1,5 @@
 import cmd
+import constants
 import socket
 from serialization import serialize_set, serialize_get
 from net import receive
@@ -21,6 +22,7 @@ class KVCli(cmd.Cmd):
 
         s = open_socket()
         s.send(payload)
+        response = receive(s)
         s.close()
 
 
@@ -32,7 +34,10 @@ class KVCli(cmd.Cmd):
         response = receive(s)
         s.close()
 
-        print(response)
+        if response[0:1] == constants.GET_OK:
+            print(response[1:])
+        elif response[0:1] == constants.GET_NOT_FOUND:
+            print("value was not found")
 
 interpreter = KVCli()
 interpreter.cmdloop()

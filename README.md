@@ -48,5 +48,7 @@ Want data to be partitioned such that:
   data is redundant within and between data centers
 
 
+
+
 ## Performance improvements
   * load and write files all at once
