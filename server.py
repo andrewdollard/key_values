@@ -35,7 +35,6 @@ def update_replica(req):
 def max_lsn(data):
     return max([data[k]['lsn'] for k in data]) if len(data) > 0 else 0
 
-
 s = socket.socket(socket.AF_INET)
 s.bind(('localhost', PORT))
 s.listen(5)
@@ -50,8 +49,12 @@ while True:
         key = req[1:KEY_LENGTH + 1]
         partition = int.from_bytes(key, byteorder='big') % len(ROUTING_TABLE)
 
+        if partition != PARTITION:
+            resp = ROUTING_TABLE[partition].to_bytes(2, byteorder='big')
+            clientsocket.send(constants.FORWARD + resp)
+            print(f"forwarding to {resp}")
 
-        if req[0:1] == constants.SET:
+        elif req[0:1] == constants.SET:
             value = req[KEY_LENGTH + 1:]
             lsn = max_lsn(data)
             new_record = {
@@ -62,7 +65,7 @@ while True:
             store_data(DATA_FILE, data)
             # update_replica(req)
 
-        if req[0:1] == constants.GET:
+        elif req[0:1] == constants.GET:
             if key in data:
                 value = data[key]['value']
                 clientsocket.send(constants.GET_OK + value)
@@ -75,7 +78,8 @@ while True:
             if data[key]['lsn'] > requested_lsn:
                 ba = serialize_record(key, data[key]['value'], data[key]['lsn'])
                 clientsocket.send(ba)
-        clientsocket.close()
+
+    clientsocket.close()
 
 # if REPLICA_PORT is not None:
 #     data = load_data(DATA_FILE)
