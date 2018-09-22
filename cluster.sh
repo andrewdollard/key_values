@@ -12,7 +12,7 @@ cleanup() {
 trap "cleanup; exit 0" INT TERM EXIT
 
 for f in {0..2}; do
-	python3 server.py "$f" &
+	python3 -u server.py "$f" | awk '{ print "'"$f"': "$0 }' &
 done
 
 wait
