@@ -14,11 +14,20 @@ ROUTING_TABLE = {
 }
 
 PARTITION = int(sys.argv[1])
+def debug(msg):
+	print(f"{PARTITION}: {msg}")
+
 PORT = ROUTING_TABLE[PARTITION]
 REPLICA_PORT = ROUTING_TABLE[(PARTITION + 1) % len(ROUTING_TABLE)]
+debug(f"partition: {PARTITION}")
+debug(f"port: {PORT}")
 
-if not os.path.exists('data'):
+
+try:
     os.makedirs('data')
+except:
+	pass
+
 DATA_FILE = f"data/{PARTITION}"
 
 
@@ -28,7 +37,7 @@ def update_replica(req):
         replica_socket.connect(('localhost', REPLICA_PORT))
         replica_socket.send(req)
     except:
-        print("replica is not available!")
+        debug("replica is not available!")
     finally:
         replica_socket.close()
 
@@ -42,7 +51,8 @@ s.listen(5)
 while True:
     (clientsocket, address) = s.accept()
     req = receive(clientsocket)
-    print(f"request from {address}: {req}")
+    debug(f"request from {address}:")
+    debug(req)
     data = load_data(DATA_FILE)
 
     if len(req) > KEY_LENGTH:
@@ -52,7 +62,7 @@ while True:
         if partition != PARTITION:
             resp = ROUTING_TABLE[partition].to_bytes(2, byteorder='big')
             clientsocket.send(constants.FORWARD + resp)
-            print(f"forwarding to {resp}")
+            debug(f"forwarding to {resp}")
 
         elif req[0:1] == constants.SET:
             value = req[KEY_LENGTH + 1:]
@@ -92,10 +102,10 @@ while True:
 #         response = receive(replica_socket)
 #         data.update(deserialize_records(BytesIO(response)))
 #         store_data(DATA_FILE, data)
-#         print("update from replica complete")
+#         debug("update from replica complete")
 #     except Exception as ex:
-#         print("replica is not available!")
-#         print(ex)
+#         debug("replica is not available!")
+#         debug(ex)
 #     finally:
 #         replica_socket.close()
 
