@@ -3,6 +3,7 @@ from enum import Enum
 from hashlib import blake2b as blake
 
 KEY_LENGTH = 20
+KEYSPACE_SIZE = 2**(KEY_LENGTH * 8)
 
 def serialize_set(key, value):
     hasher = blake(digest_size=KEY_LENGTH)

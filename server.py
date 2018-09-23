@@ -5,27 +5,27 @@ import constants
 from io import BytesIO
 from net import receive
 from persistence import load_data, store_data
-from serialization import KEY_LENGTH, serialize_record, serialize_catchup, deserialize_records
+from serialization import KEY_LENGTH, KEYSPACE_SIZE, serialize_record, serialize_catchup, deserialize_records
 
-ROUTING_TABLE = {
-    0: 1234,
-    1: 1235,
-    2: 1236,
-}
-
-PARTITION = int(sys.argv[1])
-PORT = ROUTING_TABLE[PARTITION]
-REPLICA_PORT = ROUTING_TABLE[(PARTITION + 1) % len(ROUTING_TABLE)]
-print(f"partition: {PARTITION}")
-print(f"port: {PORT}")
-
+PORT = int(sys.argv[1])
+DATA_FILE = f"data/{PORT}"
 
 try:
     os.makedirs('data')
 except:
-	pass
+    pass
 
-DATA_FILE = f"data/{PARTITION}"
+POSITION_TABLE = {
+    0.11: 1234,
+    0.22: 1235,
+    0.33: 1236,
+    0.44: 1234,
+    0.55: 1235,
+    0.66: 1236,
+    0.77: 1234,
+    0.88: 1235,
+    1.00: 1236,
+}
 
 
 def update_replica(req):
@@ -41,6 +41,13 @@ def update_replica(req):
 def max_lsn(data):
     return max([data[k]['lsn'] for k in data]) if len(data) > 0 else 0
 
+def find_port(position):
+    for node_position in POSITION_TABLE:
+        if position < node_position:
+            node_port = POSITION_TABLE[node_position]
+            print(f"position {position} is at port {node_port}")
+            return node_port
+
 s = socket.socket(socket.AF_INET)
 s.bind(('localhost', PORT))
 s.listen(5)
@@ -54,10 +61,12 @@ while True:
 
     if len(req) > KEY_LENGTH:
         key = req[1:KEY_LENGTH + 1]
-        partition = int.from_bytes(key, byteorder='big') % len(ROUTING_TABLE)
 
-        if partition != PARTITION:
-            resp = ROUTING_TABLE[partition].to_bytes(2, byteorder='big')
+        position = int.from_bytes(key, byteorder='big') / KEYSPACE_SIZE
+        key_port = find_port(position)
+
+        if key_port != PORT:
+            resp = key_port.to_bytes(2, byteorder='big')
             clientsocket.send(constants.FORWARD + resp)
             print(f"forwarding to {resp}")
 
