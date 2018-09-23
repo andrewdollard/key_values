@@ -5,7 +5,8 @@ import constants
 from io import BytesIO
 from net import receive
 from persistence import load_data, store_data
-from serialization import KEY_LENGTH, KEYSPACE_SIZE, serialize_record, serialize_catchup, deserialize_records
+from serialization import KEY_LENGTH, KEYSPACE_SIZE, \
+    serialize_record, serialize_catchup, deserialize_records, deserialize_add_node
 
 PORT = int(sys.argv[1])
 DATA_FILE = f"data/{PORT}"
@@ -15,18 +16,7 @@ try:
 except:
     pass
 
-POSITION_TABLE = {
-    0.11: 1234,
-    0.22: 1235,
-    0.33: 1236,
-    0.44: 1234,
-    0.55: 1235,
-    0.66: 1236,
-    0.77: 1234,
-    0.88: 1235,
-    1.00: 1236,
-}
-
+position_table = {}
 
 def update_replica(req):
     replica_socket = socket.socket(socket.AF_INET)
@@ -42,9 +32,9 @@ def max_lsn(data):
     return max([data[k]['lsn'] for k in data]) if len(data) > 0 else 0
 
 def find_port(position):
-    for node_position in POSITION_TABLE:
+    for node_position in position_table:
         if position < node_position:
-            node_port = POSITION_TABLE[node_position]
+            node_port = position_table[node_position]
             print(f"position {position} is at port {node_port}")
             return node_port
 
@@ -87,6 +77,10 @@ while True:
                 clientsocket.send(constants.GET_OK + value)
             else:
                 clientsocket.send(constants.GET_NOT_FOUND)
+
+    elif req[0:1] == constants.ADD_NODE:
+        node_info = deserialize_add_node(req)
+        position_table.update(node_info)
 
     elif req[0:1] == constants.CATCHUP:
         requested_lsn = int.from_bytes(req[1:], byteorder='big')

@@ -1,4 +1,5 @@
 import constants
+import math
 from enum import Enum
 from hashlib import blake2b as blake
 
@@ -45,6 +46,16 @@ def serialize_record(key, value, lsn):
     ba.extend(b':')
     ba.extend(value)
     return ba
+
+def serialize_add_node(node_point, port):
+	node_point_bytes = math.floor(node_point * 2**16 - 1).to_bytes(2, byteorder='big')
+	port_bytes = port.to_bytes(2, byteorder='big')
+	return constants.ADD_NODE + node_point_bytes + port_bytes
+
+def deserialize_add_node(resp):
+	node_point = int.from_bytes(resp[1:3], byteorder='big')
+	port = int.from_bytes(resp[3:], byteorder='big')
+	return { ((node_point + 1) / 2**16): port }
 
 def deserialize_records(stream):
     data={}
