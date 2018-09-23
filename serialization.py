@@ -24,6 +24,13 @@ def serialize_get(key):
 
     return constants.GET + key_bytes
 
+def serialize_remove_node(port):
+	port_bytes = port.to_bytes(2, byteorder='big')
+	return constants.REMOVE_NODE + port_bytes
+
+def deserialize_remove_node(req):
+	return int.from_bytes(req[1:3], byteorder='big')
+
 def deserialize_get_response(resp):
     return resp[1:]
 

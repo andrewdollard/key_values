@@ -9,7 +9,8 @@ from persistence import load_data, store_data
 from serialization import KEY_LENGTH, KEYSPACE_SIZE, \
     serialize_catchup, serialize_record, deserialize_records, \
     serialize_add_nodes, deserialize_add_nodes, \
-    serialize_request_positions, serialize_add_record
+    serialize_request_positions, serialize_add_record, \
+    deserialize_remove_node
 
 PORT = int(sys.argv[1])
 DATA_FILE = f"data/{PORT}"
@@ -73,7 +74,6 @@ def rebalance_data():
         else:
             new_data[k] = data[k]
     store_data(DATA_FILE, new_data)
-
 
 if known_ports and (PORT not in known_ports):
     print("requesting positions table")
@@ -162,6 +162,14 @@ while True:
         msg = serialize_add_nodes(position_table)
         clientsocket.send(msg)
 
+    elif req[0:1] == constants.REMOVE_NODE:
+        port = deserialize_remove_node(req)
+        for position in position_table:
+            if position_table[position] == port:
+                try:
+                    position_table.pop(position)
+                except:
+                    pass
 
     elif req[0:1] == constants.CATCHUP:
         requested_lsn = int.from_bytes(req[1:], byteorder='big')

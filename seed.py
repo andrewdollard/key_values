@@ -4,7 +4,7 @@ from serialization import serialize_add_nodes, serialize_set
 from net import make_request
 from time import sleep
 
-KNOWN_PORTS = [1234, 1235]
+KNOWN_PORTS = {1234, 1235}
 
 POSITION_TABLE = {
     0.25: 1234,
@@ -28,6 +28,13 @@ SEED_DATA = {
     'ia': 'j',
     'ka': 'l',
     'ma': 'n',
+    'ab': 'b',
+    'cb': 'd',
+    'eb': 'e',
+    'gb': 'h',
+    'ib': 'j',
+    'kb': 'l',
+    'mb': 'n',
 }
 
 sleep(2)

@@ -3,7 +3,7 @@ import constants
 from serialization import serialize_set, serialize_get
 from net import make_request, receive
 
-KNOWN_PORTS = [1234, 1235, 1236]
+KNOWN_PORTS = {1234, 1235, 1236}
 
 class KVCli(cmd.Cmd):
 
@@ -16,7 +16,6 @@ class KVCli(cmd.Cmd):
     def do_get(self, key):
         payload = serialize_get(key)
         response = make_request(payload, KNOWN_PORTS)
-        print(response)
 
         if response[0:1] == constants.GET_OK:
             print(response[1:])
