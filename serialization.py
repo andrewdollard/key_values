@@ -52,10 +52,17 @@ def serialize_add_node(node_point, port):
 	port_bytes = port.to_bytes(2, byteorder='big')
 	return constants.ADD_NODE + node_point_bytes + port_bytes
 
-def deserialize_add_node(resp):
-	node_point = int.from_bytes(resp[1:3], byteorder='big')
-	port = int.from_bytes(resp[3:], byteorder='big')
+def deserialize_add_node(req):
+	node_point = int.from_bytes(req[1:3], byteorder='big')
+	port = int.from_bytes(req[3:], byteorder='big')
 	return { ((node_point + 1) / 2**16): port }
+
+def serialize_request_positions(reply_port):
+	port_bytes = reply_port.to_bytes(2, byteorder='big')
+	return constants.REQUEST_POSITIONS + port_bytes
+
+def deserialize_request_positions(req):
+	return int.from_bytes(req[1:3], byteorder='big')
 
 def deserialize_records(stream):
     data={}

@@ -2,18 +2,11 @@ import socket
 from serialization import serialize_add_node
 from time import sleep
 
-KNOWN_PORTS = [1234, 1235, 1236]
+KNOWN_PORTS = [1234, 1235]
 
 POSITION_TABLE = {
-    0.11: 1234,
-    0.22: 1235,
-    0.33: 1236,
-    0.44: 1234,
-    0.55: 1235,
-    0.66: 1236,
-    0.77: 1234,
-    0.88: 1235,
-    1.00: 1236,
+    0.50: 1234,
+    1.00: 1235,
 }
 
 sleep(2)

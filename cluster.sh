@@ -13,7 +13,7 @@ for pid in $(netstat -vanp tcp | grep -E '1234|1235|1236' | awk '{print $9}'); d
   kill -9 $pid >/dev/null 2>&1
 done
 
-for f in 1234 1235 1236; do
+for f in 1234 1235; do
 	python3 -u server.py "$f" | awk '{ print "'"$f"': "$0 }' &
 done
 
