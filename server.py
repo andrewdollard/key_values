@@ -19,7 +19,7 @@ try:
 except:
     pass
 
-known_ports = [int(arg) for arg in sys.argv[2:]]
+known_ports = set([int(arg) for arg in sys.argv[2:]])
 print(f"known ports: {known_ports}")
 
 position_table = {}
@@ -38,23 +38,49 @@ def max_lsn(data):
     return max([data[k]['lsn'] for k in data]) if len(data) > 0 else 0
 
 def find_port(position):
-    for node_position in position_table:
+    for node_position in sorted(position_table):
         if position < node_position:
             node_port = position_table[node_position]
             print(f"position {position} is at port {node_port}")
             return node_port
 
 
+def calculate_table_updates():
+    node_to_split = random.sample(known_ports, 1)[0]
+    result = {}
+
+    base = 0
+    for position in position_table:
+        if position_table[position] == node_to_split:
+            new_position = (position - base) / 2
+            result[new_position] = PORT
+        base += position
+    return result
+
 if known_ports and (PORT not in known_ports):
     print("requesting positions table")
     s = socket.socket(socket.AF_INET)
-    s.connect(('localhost', random.choice(known_ports)))
+    s.connect(('localhost', random.sample(known_ports, 1)[0]))
     req = serialize_request_positions(PORT)
     s.send(req)
     resp = receive(s)
     position_table = deserialize_add_nodes(resp)
     print("recieved positions table")
     print(position_table)
+
+    known_ports.update([v for v in position_table.values()])
+    table_updates = calculate_table_updates()
+    position_table.update(table_updates)
+    print("calculated new positions table")
+    print(position_table)
+
+    for p in known_ports:
+        update_socket = socket.socket(socket.AF_INET)
+        update_socket.connect(('localhost', p))
+        req = serialize_add_nodes(table_updates)
+        update_socket.send(req)
+        update_socket.close()
+
     s.close()
 
 s = socket.socket(socket.AF_INET)
