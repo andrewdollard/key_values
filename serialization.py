@@ -14,6 +14,9 @@ def serialize_set(key, value):
 
     return constants.SET + key_bytes + value_bytes
 
+def serialize_add_record(key, value, lsn):
+	return constants.ADD_RECORD + serialize_record(key, value, lsn)
+
 def serialize_get(key):
     hasher = blake(digest_size=KEY_LENGTH)
     hasher.update(bytes(key, 'utf-8'))
@@ -48,7 +51,7 @@ def serialize_record(key, value, lsn):
     return ba
 
 def serialize_add_nodes(table):
-	resp = bytearray(constants.ADD_NODE)
+	resp = bytearray(constants.ADD_NODES)
 	for k in table:
 		node_point_bytes = math.floor(k * 2**16 - 1).to_bytes(2, byteorder='big')
 		port_bytes = table[k].to_bytes(2, byteorder='big')

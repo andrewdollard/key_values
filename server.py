@@ -9,7 +9,7 @@ from persistence import load_data, store_data
 from serialization import KEY_LENGTH, KEYSPACE_SIZE, \
     serialize_catchup, serialize_record, deserialize_records, \
     serialize_add_nodes, deserialize_add_nodes, \
-    serialize_request_positions
+    serialize_request_positions, serialize_add_record
 
 PORT = int(sys.argv[1])
 DATA_FILE = f"data/{PORT}"
@@ -37,13 +37,14 @@ def update_replica(req):
 def max_lsn(data):
     return max([data[k]['lsn'] for k in data]) if len(data) > 0 else 0
 
-def find_port(position):
+def get_position(key):
+    return int.from_bytes(key, byteorder='big') / KEYSPACE_SIZE
+
+def get_port(position):
     for node_position in sorted(position_table):
         if position < node_position:
             node_port = position_table[node_position]
-            print(f"position {position} is at port {node_port}")
             return node_port
-
 
 def calculate_table_updates():
     node_to_split = random.sample(known_ports, 1)[0]
@@ -56,6 +57,23 @@ def calculate_table_updates():
             result[new_position] = PORT
         base = position
     return result
+
+def rebalance_data():
+    data = load_data(DATA_FILE)
+    new_data = {}
+    for k in data:
+        position = get_position(k)
+        key_port = get_port(position)
+        if key_port != PORT:
+            s = socket.socket(socket.AF_INET)
+            s.connect(('localhost', key_port))
+            msg = serialize_add_record(k, data[k]['value'], data[k]['lsn'])
+            s.send(msg)
+            s.close()
+        else:
+            new_data[k] = data[k]
+    store_data(DATA_FILE, new_data)
+
 
 if known_ports and (PORT not in known_ports):
     print("requesting positions table")
@@ -75,6 +93,8 @@ if known_ports and (PORT not in known_ports):
     print(position_table)
 
     for p in known_ports:
+        if p == PORT:
+            continue
         update_socket = socket.socket(socket.AF_INET)
         update_socket.connect(('localhost', p))
         req = serialize_add_nodes(table_updates)
@@ -82,6 +102,7 @@ if known_ports and (PORT not in known_ports):
         update_socket.close()
 
     s.close()
+    rebalance_data()
 
 s = socket.socket(socket.AF_INET)
 s.bind(('localhost', PORT))
@@ -97,8 +118,7 @@ while True:
     if len(req) > KEY_LENGTH:
         key = req[1:KEY_LENGTH + 1]
 
-        position = int.from_bytes(key, byteorder='big') / KEYSPACE_SIZE
-        key_port = find_port(position)
+        key_port = get_port(get_position(key))
 
         if key_port != PORT:
             resp = key_port.to_bytes(2, byteorder='big')
@@ -123,16 +143,25 @@ while True:
             else:
                 clientsocket.send(constants.GET_NOT_FOUND)
 
-    elif req[0:1] == constants.ADD_NODE:
+        elif req[0:1] == constants.ADD_RECORD:
+            new_records = deserialize_records(BytesIO(req[1:]))
+            print("adding new records")
+            print(new_records)
+            data.update(new_records)
+            store_data(DATA_FILE, data)
+
+    elif req[0:1] == constants.ADD_NODES:
         node_info = deserialize_add_nodes(req)
         position_table.update(node_info)
         print("new position table:")
         print(position_table)
+        rebalance_data()
 
     elif req[0:1] == constants.REQUEST_POSITIONS:
         print("sending position table")
         msg = serialize_add_nodes(position_table)
         clientsocket.send(msg)
+
 
     elif req[0:1] == constants.CATCHUP:
         requested_lsn = int.from_bytes(req[1:], byteorder='big')
