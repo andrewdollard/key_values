@@ -17,11 +17,15 @@ def make_request(msg):
         if count > len(KNOWN_PORTS):
             break
 
-        s = socket.socket(socket.AF_INET)
-        s.connect(('localhost', port))
-        s.send(msg)
-        response = receive(s)
-        s.close()
+        try:
+            s = socket.socket(socket.AF_INET)
+            s.connect(('localhost', port))
+            s.send(msg)
+            response = receive(s)
+        except:
+            continue
+        finally:
+            s.close()
 
         if response[0:1] != constants.FORWARD:
             break
