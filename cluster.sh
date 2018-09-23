@@ -9,8 +9,8 @@ if [[ $1 == '-d' ]]; then
 	rm -rf data
 fi
 
-for pid in $(netstat -vanp tcp | grep -E '1234|1235|1236'| awk '{print $9}'); do
-  kill -9 $pid
+for pid in $(netstat -vanp tcp | grep -E '1234|1235|1236' | awk '{print $9}'); do
+  kill -9 $pid >/dev/null 2>&1
 done
 
 for f in 1234 1235 1236; do
