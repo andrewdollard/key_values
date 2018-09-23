@@ -5,14 +5,16 @@ import random
 from serialization import serialize_set, serialize_get
 from net import receive
 
+KNOWN_PORTS = [1234, 1235, 1236]
+
 def make_request(msg):
     response = b''
-    port = random.choice([1234, 1235, 1236])
+    port = random.choice(KNOWN_PORTS)
     count = 0
 
     while True:
         count += 1
-        if count > 3:
+        if count > len(KNOWN_PORTS):
             break
 
         s = socket.socket(socket.AF_INET)
