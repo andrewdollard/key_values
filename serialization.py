@@ -47,22 +47,28 @@ def serialize_record(key, value, lsn):
     ba.extend(value)
     return ba
 
-def serialize_add_node(node_point, port):
-	node_point_bytes = math.floor(node_point * 2**16 - 1).to_bytes(2, byteorder='big')
-	port_bytes = port.to_bytes(2, byteorder='big')
-	return constants.ADD_NODE + node_point_bytes + port_bytes
+def serialize_add_nodes(table):
+	resp = bytearray(constants.ADD_NODE)
+	for k in table:
+		node_point_bytes = math.floor(k * 2**16 - 1).to_bytes(2, byteorder='big')
+		port_bytes = table[k].to_bytes(2, byteorder='big')
+		resp.extend(node_point_bytes)
+		resp.extend(port_bytes)
+	return resp
 
-def deserialize_add_node(req):
-	node_point = int.from_bytes(req[1:3], byteorder='big')
-	port = int.from_bytes(req[3:], byteorder='big')
-	return { ((node_point + 1) / 2**16): port }
+def deserialize_add_nodes(req):
+	table = {}
+	i = 1
+	while i < len(req):
+		node_point = int.from_bytes(req[i:i+2], byteorder='big')
+		port = int.from_bytes(req[i+2:i+4], byteorder='big')
+		table.update({ ((node_point + 1) / 2**16): port })
+		i += 4
+	return table
 
 def serialize_request_positions(reply_port):
 	port_bytes = reply_port.to_bytes(2, byteorder='big')
 	return constants.REQUEST_POSITIONS + port_bytes
-
-def deserialize_request_positions(req):
-	return int.from_bytes(req[1:3], byteorder='big')
 
 def deserialize_records(stream):
     data={}

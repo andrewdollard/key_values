@@ -8,8 +8,8 @@ from net import receive
 from persistence import load_data, store_data
 from serialization import KEY_LENGTH, KEYSPACE_SIZE, \
     serialize_catchup, serialize_record, deserialize_records, \
-    serialize_add_node, deserialize_add_node, \
-    serialize_request_positions, deserialize_request_positions
+    serialize_add_nodes, deserialize_add_nodes, \
+    serialize_request_positions
 
 PORT = int(sys.argv[1])
 DATA_FILE = f"data/{PORT}"
@@ -44,12 +44,17 @@ def find_port(position):
             print(f"position {position} is at port {node_port}")
             return node_port
 
-if known_ports and PORT not in known_ports:
+
+if known_ports and (PORT not in known_ports):
     print("requesting positions table")
     s = socket.socket(socket.AF_INET)
     s.connect(('localhost', random.choice(known_ports)))
     req = serialize_request_positions(PORT)
     s.send(req)
+    resp = receive(s)
+    position_table = deserialize_add_nodes(resp)
+    print("recieved positions table")
+    print(position_table)
     s.close()
 
 s = socket.socket(socket.AF_INET)
@@ -93,18 +98,15 @@ while True:
                 clientsocket.send(constants.GET_NOT_FOUND)
 
     elif req[0:1] == constants.ADD_NODE:
-        node_info = deserialize_add_node(req)
+        node_info = deserialize_add_nodes(req)
         position_table.update(node_info)
+        print("new position table:")
+        print(position_table)
 
     elif req[0:1] == constants.REQUEST_POSITIONS:
-        port = deserialize_request_positions(req)
         print("sending position table")
-        for np in position_table:
-            reply_socket = socket.socket(socket.AF_INET)
-            reply_socket.connect(('localhost', port))
-            msg = serialize_add_node(np, position_table[np])
-            reply_socket.send(msg)
-            reply_socket.close()
+        msg = serialize_add_nodes(position_table)
+        clientsocket.send(msg)
 
     elif req[0:1] == constants.CATCHUP:
         requested_lsn = int.from_bytes(req[1:], byteorder='big')
