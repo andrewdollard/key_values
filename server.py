@@ -50,11 +50,11 @@ def calculate_table_updates():
     result = {}
 
     base = 0
-    for position in position_table:
+    for position in sorted(position_table):
         if position_table[position] == node_to_split:
-            new_position = (position - base) / 2
+            new_position = ((position - base) / 2) + base
             result[new_position] = PORT
-        base += position
+        base = position
     return result
 
 if known_ports and (PORT not in known_ports):
@@ -65,7 +65,7 @@ if known_ports and (PORT not in known_ports):
     s.send(req)
     resp = receive(s)
     position_table = deserialize_add_nodes(resp)
-    print("recieved positions table")
+    print("received positions table")
     print(position_table)
 
     known_ports.update([v for v in position_table.values()])

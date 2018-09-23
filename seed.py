@@ -5,7 +5,9 @@ from time import sleep
 KNOWN_PORTS = [1234, 1235]
 
 POSITION_TABLE = {
-    0.50: 1234,
+    0.25: 1234,
+    0.50: 1235,
+    0.75: 1234,
     1.00: 1235,
 }
 
