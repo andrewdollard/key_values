@@ -1,6 +1,9 @@
 import constants
+import pdb
 import random
 import socket
+
+from serialization import serialize_remove_node
 
 def simple_send(msg, port):
     s = socket.socket(socket.AF_INET)
@@ -9,39 +12,41 @@ def simple_send(msg, port):
     s.close()
 
 def make_request(msg, original_ports):
-    ports = set(original_ports)
-    port = ports.pop()
-    ports.remove(port)
+    working_ports = set(original_ports)
+    port = random.sample(working_ports, 1)[0]
 
     dead_ports = set()
     response = b''
-    count = 0
     while True:
-        count += 1
-        if count > len(original_ports):
+        if len(working_ports) == 0:
             break
 
+        working_ports.remove(port)
+        print(f"trying: {port}")
+        s = socket.socket(socket.AF_INET)
         try:
-            print(f"trying: {port}")
-            s = socket.socket(socket.AF_INET)
             s.connect(('localhost', port))
             s.send(msg)
             response = receive(s)
-            s.close()
-        except:
+        except Exception as e:
+            print(f"failed to connect: {e}")
             dead_ports.add(port)
-            port = ports.pop()
-            ports.remove(port)
+            port = random.sample(working_ports, 1)[0]
             continue
+        finally:
+            s.close()
 
         if response[0:1] != constants.FORWARD:
             break
         port = int.from_bytes(response[1:], byteorder='big')
 
-    # for dp in dead_ports:
-    #     for p in ports:
-    #         msg = serialize_remove_node(dp)
-    #         simple_send(msg, p)
+    for dp in dead_ports:
+        for p in original_ports:
+            if p == dp:
+                continue
+            print(f"asking {p} to remove dead node: {dp}")
+            msg = serialize_remove_node(dp)
+            simple_send(msg, p)
 
     return response
 

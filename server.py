@@ -1,8 +1,10 @@
 import constants
 import os
+import pdb
 import random
 import socket
 import sys
+import time
 from io import BytesIO
 from net import receive
 from persistence import load_data, store_data
@@ -111,8 +113,7 @@ s.listen(5)
 while True:
     (clientsocket, address) = s.accept()
     req = receive(clientsocket)
-    print(f"request from {address}:")
-    print(req)
+    print(f"request: {req}")
     data = load_data(DATA_FILE)
 
     if len(req) > KEY_LENGTH:
@@ -155,6 +156,7 @@ while True:
         position_table.update(node_info)
         print("new position table:")
         print(position_table)
+        time.sleep(1)
         rebalance_data()
 
     elif req[0:1] == constants.REQUEST_POSITIONS:
@@ -164,12 +166,15 @@ while True:
 
     elif req[0:1] == constants.REMOVE_NODE:
         port = deserialize_remove_node(req)
+        print(f"removing dead node: {port}")
+        new_position_table = {}
         for position in position_table:
-            if position_table[position] == port:
-                try:
-                    position_table.pop(position)
-                except:
-                    pass
+            if position_table[position] != port:
+                new_position_table[position] = position_table[position]
+        position_table = new_position_table
+        print(f"new position table: {position_table}")
+        time.sleep(1)
+        rebalance_data()
 
     elif req[0:1] == constants.CATCHUP:
         requested_lsn = int.from_bytes(req[1:], byteorder='big')
