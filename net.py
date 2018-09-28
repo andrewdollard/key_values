@@ -2,8 +2,9 @@ import constants
 import pdb
 import random
 import socket
+from collections import deque
 
-from serialization import serialize_remove_node
+from serialization import serialize_remove_node, deserialize_forward
 
 def simple_send(msg, port):
     s = socket.socket(socket.AF_INET)
@@ -30,25 +31,26 @@ def simple_send_and_receive(req, port):
     return response
 
 def make_request(msg, original_ports):
-    working_ports = set(original_ports)
-    dead_ports = set()
+    random.shuffle(original_ports)
+    working_ports = deque(original_ports)
+    dead_ports = []
     response = b''
 
     while True:
         if len(working_ports) == 0:
             break
 
-        port = random.sample(working_ports, 1)[0]
-        working_ports.remove(port)
+        port = working_ports.pop()
         print(f"trying: {port}")
         response = simple_send_and_receive(msg, port)
         if response is None:
-            dead_ports.add(port)
+            dead_ports.append(port)
             continue
 
         if response[0:1] != constants.FORWARD:
             break
-        port = int.from_bytes(response[1:], byteorder='big')
+        ports = deserialize_forward(response)
+        working_ports.extend(reversed(ports))
 
     for dp in dead_ports:
         for p in original_ports:

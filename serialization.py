@@ -76,6 +76,19 @@ def deserialize_add_nodes(req):
 		i += 4
 	return table
 
+def serialize_forward(ports):
+    resp = bytearray(constants.FORWARD)
+    for p in ports:
+        resp.extend(p.to_bytes(2, byteorder='big'))
+    return resp
+
+def deserialize_forward(req):
+    resp = []
+    for i in range(1, len(req) - 1, 2):
+        resp.append(int.from_bytes(req[i:i+2], byteorder='big'))
+    return resp
+
+
 def serialize_request_partitions(reply_port):
 	port_bytes = reply_port.to_bytes(2, byteorder='big')
 	return constants.REQUEST_PARTITIONS + port_bytes

@@ -4,13 +4,13 @@ from serialization import serialize_add_nodes, serialize_set
 from net import make_request, simple_send
 from time import sleep
 
-KNOWN_PORTS = {1234, 1235}
+KNOWN_PORTS = [1234, 1235, 1236, 1237]
 
-POSITION_TABLE = {
+PARTITION_TABLE = {
     0.25: 1234,
     0.50: 1235,
-    0.75: 1234,
-    1.00: 1235,
+    0.75: 1236,
+    1.00: 1237,
 }
 
 SEED_DATA = {
@@ -41,7 +41,7 @@ sleep(2)
 print("seeding")
 
 for p in KNOWN_PORTS:
-    msg = serialize_add_nodes(POSITION_TABLE)
+    msg = serialize_add_nodes(PARTITION_TABLE)
     simple_send(msg, p)
 
 for k in SEED_DATA:

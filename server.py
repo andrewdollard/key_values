@@ -13,7 +13,7 @@ from serialization import KEY_LENGTH, KEYSPACE_SIZE,          \
     serialize_catchup, serialize_record, deserialize_records, \
     serialize_add_nodes, deserialize_add_nodes,               \
     serialize_request_partitions, serialize_add_record,       \
-    deserialize_remove_node
+    serialize_forward, deserialize_remove_node
 
 PORT = int(sys.argv[1])
 DATA_FILE = f"data/{PORT}"
@@ -23,7 +23,9 @@ try:
 except:
     pass
 
-known_ports = set([int(arg) for arg in sys.argv[2:]])
+REPLICATION_FACTOR = 3
+
+known_ports = [int(arg) for arg in sys.argv[2:]]
 print(f"known ports: {known_ports}")
 
 partition_table = {}
@@ -40,8 +42,26 @@ def get_port(partition):
             node_port = partition_table[node_partition]
             return node_port
 
+def get_ports(location):
+    partition_bounds = sorted(partition_table)
+    ports = []
+    for i in range(0, len(partition_bounds)):
+        if location < partition_bounds[i]:
+            ports.append(partition_table[partition_bounds[i]])
+            break
+
+    while True:
+        if len(ports) == REPLICATION_FACTOR:
+            break
+        i = (i + 1) % len(partition_bounds)
+        bound = partition_bounds[i]
+        ports.append(partition_table[bound])
+
+    return ports
+
+
 def calculate_table_updates():
-    node_to_split = random.sample(known_ports, 1)[0]
+    node_to_split = random.choice(known_ports)
     result = {}
 
     base = 0
@@ -57,12 +77,12 @@ def rebalance_data():
     new_data = {}
     for k in data:
         partition = get_partition(k)
-        key_port = get_port(partition)
-        if key_port != PORT:
-            msg = serialize_add_record(k, data[k]['value'], data[k]['lsn'])
-            simple_send(msg, key_port)
-        else:
-            new_data[k] = data[k]
+        for p in get_ports(partition):
+            if p != PORT:
+                msg = serialize_add_record(k, data[k]['value'], data[k]['lsn'])
+                simple_send(msg, p)
+            else:
+                new_data[k] = data[k]
     store_data(DATA_FILE, new_data)
 
 if known_ports and (PORT not in known_ports):
@@ -72,7 +92,7 @@ if known_ports and (PORT not in known_ports):
     partition_table = deserialize_add_nodes(resp)
     print(f"received partition table: {partition_table}")
 
-    known_ports.update([v for v in partition_table.values()])
+    known_ports = [v for v in partition_table.values()]
     table_updates = calculate_table_updates()
     partition_table.update(table_updates)
     print(f"calculated new partition table: {partition_table}")
@@ -96,12 +116,12 @@ while True:
 
     if len(req) > KEY_LENGTH:
         key = req[1:KEY_LENGTH + 1]
-        key_port = get_port(get_partition(key))
+        key_ports = get_ports(get_partition(key))
 
-        if key_port != PORT:
-            resp = key_port.to_bytes(2, byteorder='big')
-            clientsocket.send(constants.FORWARD + resp)
-            print(f"forwarding to {resp}")
+        if PORT not in key_ports:
+            msg = serialize_forward(key_ports)
+            clientsocket.send(msg)
+            print(f"forwarding to {key_ports}")
 
         elif req[0:1] == constants.SET:
             value = req[KEY_LENGTH + 1:]

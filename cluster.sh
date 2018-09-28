@@ -9,9 +9,9 @@ if [[ $1 == '-d' ]]; then
 	rm -rf data
 fi
 
-lsof -nP -i4TCP:1234,1235,1236 | awk 'NR!=1 {print $2}' | xargs kill
+lsof -nP -i4TCP:1234,1235,1236,1237 | awk 'NR!=1 {print $2}' | xargs kill
 
-for f in 1234 1235; do
+for f in 1234 1235 1236 1237; do
 	python3 -u server.py "$f" | awk '{ print "'"$f"': "$0 }' &
 done
 
