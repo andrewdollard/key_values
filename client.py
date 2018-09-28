@@ -3,7 +3,7 @@ import constants
 from serialization import serialize_set, serialize_get
 from net import make_request
 
-KNOWN_PORTS = {1234, 1235, 1236}
+KNOWN_PORTS = [1234, 1235, 1236, 1237, 1238]
 
 class KVCli(cmd.Cmd):
 
