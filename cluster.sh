@@ -9,9 +9,7 @@ if [[ $1 == '-d' ]]; then
 	rm -rf data
 fi
 
-for pid in $(netstat -vanp tcp | grep -E '1234|1235|1236' | awk '{print $9}'); do
-  kill -9 $pid >/dev/null 2>&1
-done
+lsof -nP -i4TCP:1234,1235,1236 | awk 'NR!=1 {print $2}' | xargs kill
 
 for f in 1234 1235; do
 	python3 -u server.py "$f" | awk '{ print "'"$f"': "$0 }' &
