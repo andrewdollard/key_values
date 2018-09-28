@@ -70,14 +70,12 @@ if known_ports and (PORT not in known_ports):
     req = serialize_request_partitions(PORT)
     resp = make_request(req, known_ports)
     partition_table = deserialize_add_nodes(resp)
-    print("received partition table")
-    print(partition_table)
+    print(f"received partition table: {partition_table}")
 
     known_ports.update([v for v in partition_table.values()])
     table_updates = calculate_table_updates()
     partition_table.update(table_updates)
-    print("calculated new partition table")
-    print(partition_table)
+    print(f"calculated new partition table: {partition_table}")
 
     for p in known_ports:
         if p == PORT:
@@ -125,16 +123,14 @@ while True:
 
         elif req[0:1] == constants.ADD_RECORD:
             new_records = deserialize_records(BytesIO(req[1:]))
-            print("adding new records")
-            print(new_records)
+            print(f"adding new records: f{new_records}")
             data.update(new_records)
             store_data(DATA_FILE, data)
 
     elif req[0:1] == constants.ADD_NODES:
         node_info = deserialize_add_nodes(req)
         partition_table.update(node_info)
-        print("new partition table:")
-        print(partition_table)
+        print(f"new partition table: {partition_table}")
         time.sleep(1)
         rebalance_data()
 
