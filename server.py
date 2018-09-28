@@ -6,12 +6,13 @@ import socket
 import sys
 import time
 from io import BytesIO
-from net import receive
+from net import make_request, receive, \
+    simple_send, simple_send_and_receive
 from persistence import load_data, store_data
-from serialization import KEY_LENGTH, KEYSPACE_SIZE, \
+from serialization import KEY_LENGTH, KEYSPACE_SIZE,          \
     serialize_catchup, serialize_record, deserialize_records, \
-    serialize_add_nodes, deserialize_add_nodes, \
-    serialize_request_partitions, serialize_add_record, \
+    serialize_add_nodes, deserialize_add_nodes,               \
+    serialize_request_partitions, serialize_add_record,       \
     deserialize_remove_node
 
 PORT = int(sys.argv[1])
@@ -26,16 +27,6 @@ known_ports = set([int(arg) for arg in sys.argv[2:]])
 print(f"known ports: {known_ports}")
 
 partition_table = {}
-
-def update_replica(req):
-    replica_socket = socket.socket(socket.AF_INET)
-    try:
-        replica_socket.connect(('localhost', REPLICA_PORT))
-        replica_socket.send(req)
-    except:
-        print("replica is not available!")
-    finally:
-        replica_socket.close()
 
 def max_lsn(data):
     return max([data[k]['lsn'] for k in data]) if len(data) > 0 else 0
@@ -68,22 +59,16 @@ def rebalance_data():
         partition = get_partition(k)
         key_port = get_port(partition)
         if key_port != PORT:
-            s = socket.socket(socket.AF_INET)
-            s.connect(('localhost', key_port))
             msg = serialize_add_record(k, data[k]['value'], data[k]['lsn'])
-            s.send(msg)
-            s.close()
+            simple_send(msg, key_port)
         else:
             new_data[k] = data[k]
     store_data(DATA_FILE, new_data)
 
 if known_ports and (PORT not in known_ports):
     print("requesting partition table")
-    s = socket.socket(socket.AF_INET)
-    s.connect(('localhost', random.sample(known_ports, 1)[0]))
     req = serialize_request_partitions(PORT)
-    s.send(req)
-    resp = receive(s)
+    resp = make_request(req, known_ports)
     partition_table = deserialize_add_nodes(resp)
     print("received partition table")
     print(partition_table)
@@ -97,13 +82,8 @@ if known_ports and (PORT not in known_ports):
     for p in known_ports:
         if p == PORT:
             continue
-        update_socket = socket.socket(socket.AF_INET)
-        update_socket.connect(('localhost', p))
-        req = serialize_add_nodes(table_updates)
-        update_socket.send(req)
-        update_socket.close()
+        simple_send(serialize_add_nodes(table_updates), p)
 
-    s.close()
     rebalance_data()
 
 s = socket.socket(socket.AF_INET)
@@ -135,7 +115,6 @@ while True:
             }
             data[key] = new_record
             store_data(DATA_FILE, data)
-            # update_replica(req)
 
         elif req[0:1] == constants.GET:
             if key in data:

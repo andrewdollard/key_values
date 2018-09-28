@@ -7,9 +7,27 @@ from serialization import serialize_remove_node
 
 def simple_send(msg, port):
     s = socket.socket(socket.AF_INET)
-    s.connect(('localhost', port))
-    s.send(msg)
-    s.close()
+    try:
+        s.connect(('localhost', port))
+        s.send(msg)
+    except:
+        print(f"port {port} is not responding!")
+    finally:
+        s.close()
+
+def simple_send_and_receive(req, port):
+    s = socket.socket(socket.AF_INET)
+    response = None
+    try:
+        s.connect(('localhost', port))
+        s.send(req)
+        response = receive(s)
+    except Exception as e:
+        print(f"port {port} is not responding!")
+        print(e)
+    finally:
+        s.close()
+    return response
 
 def make_request(msg, original_ports):
     working_ports = set(original_ports)
@@ -23,18 +41,11 @@ def make_request(msg, original_ports):
 
         working_ports.remove(port)
         print(f"trying: {port}")
-        s = socket.socket(socket.AF_INET)
-        try:
-            s.connect(('localhost', port))
-            s.send(msg)
-            response = receive(s)
-        except Exception as e:
-            print(f"failed to connect: {e}")
+        response = simple_send_and_receive(msg, port)
+        if response is None:
             dead_ports.add(port)
             port = random.sample(working_ports, 1)[0]
             continue
-        finally:
-            s.close()
 
         if response[0:1] != constants.FORWARD:
             break

@@ -1,7 +1,7 @@
 import socket
 import random
 from serialization import serialize_add_nodes, serialize_set
-from net import make_request
+from net import make_request, simple_send
 from time import sleep
 
 KNOWN_PORTS = {1234, 1235}
@@ -41,11 +41,8 @@ sleep(2)
 print("seeding")
 
 for p in KNOWN_PORTS:
-    s = socket.socket(socket.AF_INET)
-    s.connect(('localhost', p))
     msg = serialize_add_nodes(POSITION_TABLE)
-    s.send(msg)
-    s.close()
+    simple_send(msg, p)
 
 for k in SEED_DATA:
     make_request(serialize_set(k, SEED_DATA[k]), KNOWN_PORTS)
