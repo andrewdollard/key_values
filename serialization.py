@@ -76,9 +76,9 @@ def deserialize_add_nodes(req):
 		i += 4
 	return table
 
-def serialize_request_positions(reply_port):
+def serialize_request_partitions(reply_port):
 	port_bytes = reply_port.to_bytes(2, byteorder='big')
-	return constants.REQUEST_POSITIONS + port_bytes
+	return constants.REQUEST_PARTITIONS + port_bytes
 
 def deserialize_records(stream):
     data={}

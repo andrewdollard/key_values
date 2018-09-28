@@ -11,7 +11,7 @@ from persistence import load_data, store_data
 from serialization import KEY_LENGTH, KEYSPACE_SIZE, \
     serialize_catchup, serialize_record, deserialize_records, \
     serialize_add_nodes, deserialize_add_nodes, \
-    serialize_request_positions, serialize_add_record, \
+    serialize_request_partitions, serialize_add_record, \
     deserialize_remove_node
 
 PORT = int(sys.argv[1])
@@ -25,7 +25,7 @@ except:
 known_ports = set([int(arg) for arg in sys.argv[2:]])
 print(f"known ports: {known_ports}")
 
-position_table = {}
+partition_table = {}
 
 def update_replica(req):
     replica_socket = socket.socket(socket.AF_INET)
@@ -40,13 +40,13 @@ def update_replica(req):
 def max_lsn(data):
     return max([data[k]['lsn'] for k in data]) if len(data) > 0 else 0
 
-def get_position(key):
+def get_partition(key):
     return int.from_bytes(key, byteorder='big') / KEYSPACE_SIZE
 
-def get_port(position):
-    for node_position in sorted(position_table):
-        if position < node_position:
-            node_port = position_table[node_position]
+def get_port(partition):
+    for node_partition in sorted(partition_table):
+        if partition < node_partition:
+            node_port = partition_table[node_partition]
             return node_port
 
 def calculate_table_updates():
@@ -54,19 +54,19 @@ def calculate_table_updates():
     result = {}
 
     base = 0
-    for position in sorted(position_table):
-        if position_table[position] == node_to_split:
-            new_position = ((position - base) / 2) + base
-            result[new_position] = PORT
-        base = position
+    for partition in sorted(partition_table):
+        if partition_table[partition] == node_to_split:
+            new_partition = ((partition - base) / 2) + base
+            result[new_partition] = PORT
+        base = partition
     return result
 
 def rebalance_data():
     data = load_data(DATA_FILE)
     new_data = {}
     for k in data:
-        position = get_position(k)
-        key_port = get_port(position)
+        partition = get_partition(k)
+        key_port = get_port(partition)
         if key_port != PORT:
             s = socket.socket(socket.AF_INET)
             s.connect(('localhost', key_port))
@@ -78,21 +78,21 @@ def rebalance_data():
     store_data(DATA_FILE, new_data)
 
 if known_ports and (PORT not in known_ports):
-    print("requesting positions table")
+    print("requesting partition table")
     s = socket.socket(socket.AF_INET)
     s.connect(('localhost', random.sample(known_ports, 1)[0]))
-    req = serialize_request_positions(PORT)
+    req = serialize_request_partitions(PORT)
     s.send(req)
     resp = receive(s)
-    position_table = deserialize_add_nodes(resp)
-    print("received positions table")
-    print(position_table)
+    partition_table = deserialize_add_nodes(resp)
+    print("received partition table")
+    print(partition_table)
 
-    known_ports.update([v for v in position_table.values()])
+    known_ports.update([v for v in partition_table.values()])
     table_updates = calculate_table_updates()
-    position_table.update(table_updates)
-    print("calculated new positions table")
-    print(position_table)
+    partition_table.update(table_updates)
+    print("calculated new partition table")
+    print(partition_table)
 
     for p in known_ports:
         if p == PORT:
@@ -119,7 +119,7 @@ while True:
     if len(req) > KEY_LENGTH:
         key = req[1:KEY_LENGTH + 1]
 
-        key_port = get_port(get_position(key))
+        key_port = get_port(get_partition(key))
 
         if key_port != PORT:
             resp = key_port.to_bytes(2, byteorder='big')
@@ -153,26 +153,26 @@ while True:
 
     elif req[0:1] == constants.ADD_NODES:
         node_info = deserialize_add_nodes(req)
-        position_table.update(node_info)
-        print("new position table:")
-        print(position_table)
+        partition_table.update(node_info)
+        print("new partition table:")
+        print(partition_table)
         time.sleep(1)
         rebalance_data()
 
-    elif req[0:1] == constants.REQUEST_POSITIONS:
-        print("sending position table")
-        msg = serialize_add_nodes(position_table)
+    elif req[0:1] == constants.REQUEST_PARTITIONS:
+        print("sending partition table")
+        msg = serialize_add_nodes(partition_table)
         clientsocket.send(msg)
 
     elif req[0:1] == constants.REMOVE_NODE:
         port = deserialize_remove_node(req)
         print(f"removing dead node: {port}")
-        new_position_table = {}
-        for position in position_table:
-            if position_table[position] != port:
-                new_position_table[position] = position_table[position]
-        position_table = new_position_table
-        print(f"new position table: {position_table}")
+        new_partition_table = {}
+        for partition in partition_table:
+            if partition_table[partition] != port:
+                new_partition_table[partition] = partition_table[partition]
+        partition_table = new_partition_table
+        print(f"new partition table: {partition_table}")
         time.sleep(1)
         rebalance_data()
 
