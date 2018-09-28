@@ -96,7 +96,6 @@ while True:
 
     if len(req) > KEY_LENGTH:
         key = req[1:KEY_LENGTH + 1]
-
         key_port = get_port(get_partition(key))
 
         if key_port != PORT:
@@ -127,17 +126,17 @@ while True:
             data.update(new_records)
             store_data(DATA_FILE, data)
 
+    elif req[0:1] == constants.REQUEST_PARTITIONS:
+        print("sending partition table")
+        msg = serialize_add_nodes(partition_table)
+        clientsocket.send(msg)
+
     elif req[0:1] == constants.ADD_NODES:
         node_info = deserialize_add_nodes(req)
         partition_table.update(node_info)
         print(f"new partition table: {partition_table}")
         time.sleep(1)
         rebalance_data()
-
-    elif req[0:1] == constants.REQUEST_PARTITIONS:
-        print("sending partition table")
-        msg = serialize_add_nodes(partition_table)
-        clientsocket.send(msg)
 
     elif req[0:1] == constants.REMOVE_NODE:
         port = deserialize_remove_node(req)

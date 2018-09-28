@@ -31,20 +31,19 @@ def simple_send_and_receive(req, port):
 
 def make_request(msg, original_ports):
     working_ports = set(original_ports)
-    port = random.sample(working_ports, 1)[0]
-
     dead_ports = set()
     response = b''
+
     while True:
         if len(working_ports) == 0:
             break
 
+        port = random.sample(working_ports, 1)[0]
         working_ports.remove(port)
         print(f"trying: {port}")
         response = simple_send_and_receive(msg, port)
         if response is None:
             dead_ports.add(port)
-            port = random.sample(working_ports, 1)[0]
             continue
 
         if response[0:1] != constants.FORWARD:
