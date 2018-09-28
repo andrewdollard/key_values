@@ -1,54 +1,15 @@
-# Distributed KV Store project
+## To run
 
-## Use case
+`./cluster.sh -d` : deletes data file, kills any existing TCP connections, starts 2 nodes (on ports 1234 & 1235) and runs a seed script
 
-Global key-value store
-Multi-datacenter
-Edge storage
+`python server.py 1236 1234 1235`: starts another node on port 1236, and tells it about presence of nodes on 1234 and 1235
 
-## Design goals
-
-Backward- and forward-compatibility
-High resilience
-Redundancy: multiple replicas of all KVs
-Arbitrarily sized keys and values
-
-Speed
-
-Massively scalable
+`python client.py`: starts a client with knowledge of all three existing nodes.
 
 
-## Serialization format
+## Commands
 
-commands:
-  GET, SET
+`set foo=bar`
 
-1 byte: command
-20 byte: key
-2 bytes: delimiter
-n bytes: value
-2 bytes: delimiter
+`get foo`
 
-
-## Replication issues
-
-How does replica know it's now leader?
-How does revived dead leader know it's now a replica?
-
-How does a leader-turned-follower request an update?
-  starts up
-  connects to replica, if set
-  asks replica for all updates beyond last known LSN
-
-
-## Partitioning
-
-Want data to be partitioned such that:
-  latency is minimized - data is geographically distributed
-  data is redundant within and between data centers
-
-
-
-
-## Performance improvements
-  * load and write files all at once
