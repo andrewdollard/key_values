@@ -97,8 +97,10 @@ def rebalance_data():
     send_count = 0
     for k in data:
         location = get_location(k)
+        # this needs to only send data to nodes that need it??
         for p in get_ports(location):
             if p != PORT:
+                print(f"sending record at location {location} to port {p}")
                 msg = serialize_add_record(k, data[k]['value'], data[k]['lsn'])
                 simple_send(msg, p)
                 send_count += 1
@@ -112,12 +114,12 @@ if known_ports:
     req = serialize_request_partitions(PORT)
     resp = make_request(req, known_ports)
     partition_table = deserialize_add_nodes(resp)
-    logging.info(f"received partition table: {partition_table}")
+    logging.info(f"received partition table: {sorted(partition_table.items())}")
     known_ports = [v for v in partition_table.values()]
     if PORT not in known_ports:
         table_updates = calculate_table_updates()
         partition_table.update(table_updates)
-        logging.info(f"calculated new partition table: {partition_table}")
+        logging.info(f"calculated new partition table: {sorted(partition_table.items())}")
         threading.Thread(target=rebalance_data).start()
         for p in known_ports:
             if p == PORT:
@@ -179,10 +181,12 @@ while True:
                 'value': value,
             }
 
-            logging.info(f"setting {key}={value} at lsn {lsn}")
             data[key] = new_record
             location = get_location(key)
-            for p in get_ports(location):
+            logging.info(f"setting {key}={value} at lsn {lsn}, location {location}")
+            ports = get_ports(location)
+            logging.info(f"replicating to ports {ports}")
+            for p in ports:
                 if p != PORT:
                     msg = serialize_add_record(key, new_record['value'], new_record['lsn'])
                     threading.Thread(target=simple_send, args=(msg, p)).start()
@@ -210,7 +214,7 @@ while True:
     elif req[0:1] == constants.ADD_NODES:
         node_info = deserialize_add_nodes(req)
         partition_table.update(node_info)
-        logging.info(f"new partition table: {partition_table}")
+        logging.info(f"new partition table: {sorted(partition_table.items())}")
         threading.Thread(target=rebalance_data).start()
 
     elif req[0:1] == constants.REMOVE_NODE:
@@ -221,7 +225,7 @@ while True:
             if partition_table[partition] != port:
                 new_partition_table[partition] = partition_table[partition]
         partition_table = new_partition_table
-        logging.info(f"new partition table: {partition_table}")
+        logging.info(f"new partition table: {sorted(partition_table.items())}")
         time.sleep(2)
         threading.Thread(target=rebalance_data).start()
 
