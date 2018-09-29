@@ -1,4 +1,7 @@
 import logging
+import sys
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG, format='%(message)s')
+
 import constants
 import pdb
 import random
@@ -51,15 +54,17 @@ def make_request(msg, original_ports):
         if response[0:1] != constants.FORWARD:
             break
         ports = deserialize_forward(response)
-        working_ports.extend(reversed(ports))
+        random.shuffle(ports)
+        working_ports.extend(ports)
+        logging.info(f"updated working ports: {working_ports}")
 
-    for dp in dead_ports:
-        for p in original_ports:
-            if p == dp:
-                continue
-            print(f"asking {p} to remove dead node: {dp}")
-            msg = serialize_remove_node(dp)
-            simple_send(msg, p)
+    # for dp in dead_ports:
+    #     for p in original_ports:
+    #         if p == dp:
+    #             continue
+    #         logging.info(f"asking {p} to remove dead node: {dp}")
+    #         msg = serialize_remove_node(dp)
+    #         simple_send(msg, p)
 
     return response
 

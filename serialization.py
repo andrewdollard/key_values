@@ -15,7 +15,7 @@ def serialize_set(key, value):
     return constants.SET + key_bytes + value_bytes
 
 def serialize_add_record(key, value, lsn):
-	return constants.ADD_RECORD + serialize_record(key, value, lsn)
+    return constants.ADD_RECORD + serialize_record(key, value, lsn)
 
 def serialize_get(key):
     hasher = blake(digest_size=KEY_LENGTH)
@@ -25,19 +25,29 @@ def serialize_get(key):
     return constants.GET + key_bytes
 
 def serialize_remove_node(port):
-	port_bytes = port.to_bytes(2, byteorder='big')
-	return constants.REMOVE_NODE + port_bytes
+    port_bytes = port.to_bytes(2, byteorder='big')
+    return constants.REMOVE_NODE + port_bytes
 
 def deserialize_remove_node(req):
-	return int.from_bytes(req[1:3], byteorder='big')
+    return int.from_bytes(req[1:3], byteorder='big')
 
 def deserialize_get_response(resp):
     return resp[1:]
 
-def serialize_catchup(lsn):
+def serialize_catchup(lsn, port):
     bytes_in_lsn = (lsn.bit_length() + 7) // 8
     lsnb = lsn.to_bytes(bytes_in_lsn, byteorder='big')
-    return constants.CATCHUP + lsnb
+    port_bytes = port.to_bytes(2, byteorder='big')
+
+    ba = bytearray(constants.CATCHUP)
+    ba.extend(port_bytes)
+    ba.extend(lsnb)
+    return ba
+
+def deserialize_catchup(req):
+    requested_port = int.from_bytes(req[1:3], byteorder='big')
+    requested_lsn = int.from_bytes(req[3:], byteorder='big')
+    return (requested_port, requested_lsn)
 
 def serialize_record(key, value, lsn):
     ba = bytearray()
@@ -58,23 +68,23 @@ def serialize_record(key, value, lsn):
     return ba
 
 def serialize_add_nodes(table):
-	resp = bytearray(constants.ADD_NODES)
-	for k in table:
-		node_point_bytes = math.floor(k * 2**16 - 1).to_bytes(2, byteorder='big')
-		port_bytes = table[k].to_bytes(2, byteorder='big')
-		resp.extend(node_point_bytes)
-		resp.extend(port_bytes)
-	return resp
+    resp = bytearray(constants.ADD_NODES)
+    for k in table:
+        node_point_bytes = math.floor(k * 2**16 - 1).to_bytes(2, byteorder='big')
+        port_bytes = table[k].to_bytes(2, byteorder='big')
+        resp.extend(node_point_bytes)
+        resp.extend(port_bytes)
+    return resp
 
 def deserialize_add_nodes(req):
-	table = {}
-	i = 1
-	while i < len(req):
-		node_point = int.from_bytes(req[i:i+2], byteorder='big')
-		port = int.from_bytes(req[i+2:i+4], byteorder='big')
-		table.update({ ((node_point + 1) / 2**16): port })
-		i += 4
-	return table
+    table = {}
+    i = 1
+    while i < len(req):
+        node_point = int.from_bytes(req[i:i+2], byteorder='big')
+        port = int.from_bytes(req[i+2:i+4], byteorder='big')
+        table.update({ ((node_point + 1) / 2**16): port })
+        i += 4
+    return table
 
 def serialize_forward(ports):
     resp = bytearray(constants.FORWARD)
@@ -88,10 +98,9 @@ def deserialize_forward(req):
         resp.append(int.from_bytes(req[i:i+2], byteorder='big'))
     return resp
 
-
 def serialize_request_partitions(reply_port):
-	port_bytes = reply_port.to_bytes(2, byteorder='big')
-	return constants.REQUEST_PARTITIONS + port_bytes
+    port_bytes = reply_port.to_bytes(2, byteorder='big')
+    return constants.REQUEST_PARTITIONS + port_bytes
 
 def deserialize_records(stream):
     data={}

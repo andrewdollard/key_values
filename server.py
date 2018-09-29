@@ -5,6 +5,7 @@ logging.basicConfig(stream=sys.stdout, level=logging.DEBUG, format='%(message)s'
 import constants
 import os
 import pdb
+import pprint
 import random
 import socket
 import sys
@@ -18,7 +19,8 @@ from serialization import KEY_LENGTH, KEYSPACE_SIZE,          \
     serialize_catchup, serialize_record, deserialize_records, \
     serialize_add_nodes, deserialize_add_nodes,               \
     serialize_request_partitions, serialize_add_record,       \
-    serialize_forward, deserialize_remove_node
+    serialize_forward, deserialize_remove_node,               \
+    deserialize_catchup
 
 PORT = int(sys.argv[1])
 DATA_FILE = f"data/{PORT}"
@@ -40,6 +42,19 @@ def max_lsn(data):
 
 def get_location(key):
     return int.from_bytes(key, byteorder='big') / KEYSPACE_SIZE
+
+def get_replica_node_ports(primary_port):
+    known_ports = [v for v in partition_table.values()]
+    ports = []
+    for i in range(0, len(known_ports)):
+        if known_ports[i] == primary_port:
+            j = i
+            while True:
+                if (j - i) == REPLICATION_FACTOR:
+                    break
+                j += 1
+                ports.append(known_ports[j % len(known_ports)])
+    return ports
 
 def get_ports(location):
     partition_bounds = sorted(partition_table)
@@ -74,12 +89,14 @@ def calculate_table_updates():
 def rebalance_data():
     data = load_data(DATA_FILE)
     new_data = {}
+    send_count = 0
     for k in data:
         location = get_location(k)
         for p in get_ports(location):
             if p != PORT:
                 msg = serialize_add_record(k, data[k]['value'], data[k]['lsn'])
-                threading.Thread(target=simple_send, args=(msg, p)).start()
+                simple_send(msg, p)
+                send_count += 1
             else:
                 new_data[k] = data[k]
     store_data(DATA_FILE, new_data)
@@ -92,19 +109,36 @@ if known_ports:
     partition_table = deserialize_add_nodes(resp)
     logging.info(f"received partition table: {partition_table}")
     known_ports = [v for v in partition_table.values()]
-    table_updates = calculate_table_updates()
-    partition_table.update(table_updates)
-    print(f"calculated new partition table: {partition_table}")
-
-    rebalance_data()
-    for p in known_ports:
-        if p == PORT:
-            continue
-        msg = serialize_add_nodes(table_updates)
-        threading.Thread(target=simple_send, args=(msg, p)).start()
+    if PORT not in known_ports:
+        table_updates = calculate_table_updates()
+        partition_table.update(table_updates)
+        logging.info(f"calculated new partition table: {partition_table}")
+        threading.Thread(target=rebalance_data).start()
+        for p in known_ports:
+            if p == PORT:
+                continue
+            msg = serialize_add_nodes(table_updates)
+            threading.Thread(target=simple_send, args=(msg, p)).start()
+    else:
+        data = load_data(DATA_FILE)
+        for p in known_ports:
+            if p == PORT:
+                continue
+            lsn = max_lsn(data)
+            msg = serialize_catchup(lsn, PORT)
+            logging.info(f"requesting lsn {lsn} from port {p}")
+            response = simple_send_and_receive(msg, p)
+            data.update(deserialize_records(BytesIO(response)))
+        store_data(DATA_FILE, data)
+        logging.info("update from replicas complete")
 
 s = socket.socket(socket.AF_INET)
-s.bind(('localhost', PORT))
+try:
+    s.bind(('localhost', PORT))
+except:
+    logging.info(f"could not listen on port {PORT}")
+    exit
+
 s.listen(5)
 
 while True:
@@ -130,7 +164,7 @@ while True:
                 'value': value,
             }
 
-            logging.info(f"storing {key}={value} at lsn {lsn}")
+            logging.info(f"setting {key}={value} at lsn {lsn + 1}")
             data[key] = new_record
             location = get_location(key)
             for p in get_ports(location):
@@ -161,8 +195,8 @@ while True:
     elif req[0:1] == constants.ADD_NODES:
         node_info = deserialize_add_nodes(req)
         partition_table.update(node_info)
-        print(f"new partition table: {partition_table}")
-        rebalance_data()
+        logging.info(f"new partition table: {partition_table}")
+        threading.Thread(target=rebalance_data).start()
 
     elif req[0:1] == constants.REMOVE_NODE:
         port = deserialize_remove_node(req)
@@ -174,14 +208,21 @@ while True:
         partition_table = new_partition_table
         logging.info(f"new partition table: {partition_table}")
         time.sleep(2)
-        rebalance_data()
+        threading.Thread(target=rebalance_data).start()
 
     elif req[0:1] == constants.CATCHUP:
-        requested_lsn = int.from_bytes(req[1:], byteorder='big')
+        requested_port, requested_lsn = deserialize_catchup(req)
+        logging.info(f"returning lsn {requested_lsn}")
         for key in data:
-            if data[key]['lsn'] > requested_lsn:
+            belongs_to_node = requested_port in get_ports(get_location(key))
+            not_seen = data[key]['lsn'] > requested_lsn
+            if belongs_to_node and not_seen:
                 ba = serialize_record(key, data[key]['value'], data[key]['lsn'])
                 clientsocket.send(ba)
+
+    elif req[0:1] == constants.REPORT:
+        logging.info("** data **")
+        logging.info(pprint.pformat(data))
 
     clientsocket.close()
 

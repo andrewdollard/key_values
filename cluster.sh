@@ -15,7 +15,9 @@ for f in 1234 1235 1236 1237; do
 	python3 -u server.py "$f" | awk '{ print "'"$f"': "$0 }' &
 done
 
-python3 -u seed.py | awk '{ print "seed: "$0 }' &
+if [[ $1 == '-d' ]]; then
+  python3 -u seed.py | awk '{ print "seed: "$0 }' &
+fi
 
 wait
 cleanup
