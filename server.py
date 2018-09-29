@@ -1,3 +1,7 @@
+import logging
+import sys
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG, format='%(message)s')
+
 import constants
 import os
 import pdb
@@ -27,7 +31,7 @@ except:
 REPLICATION_FACTOR = 2
 
 known_ports = [int(arg) for arg in sys.argv[2:]]
-print(f"known ports: {known_ports}")
+logging.info(f"known ports: {known_ports}")
 
 partition_table = {}
 
@@ -79,14 +83,14 @@ def rebalance_data():
             else:
                 new_data[k] = data[k]
     store_data(DATA_FILE, new_data)
+    logging.info(f"sent {send_count} records")
 
-if known_ports and (PORT not in known_ports):
-    print("requesting partition table")
+if known_ports:
+    logging.info("requesting partition table")
     req = serialize_request_partitions(PORT)
     resp = make_request(req, known_ports)
     partition_table = deserialize_add_nodes(resp)
-    print(f"received partition table: {partition_table}")
-
+    logging.info(f"received partition table: {partition_table}")
     known_ports = [v for v in partition_table.values()]
     table_updates = calculate_table_updates()
     partition_table.update(table_updates)
@@ -106,7 +110,7 @@ s.listen(5)
 while True:
     (clientsocket, address) = s.accept()
     req = receive(clientsocket)
-    print(f"request from {address}: {req}")
+    # logging.info(f"request from {address}: {req}")
     data = load_data(DATA_FILE)
 
     if len(req) > KEY_LENGTH:
@@ -116,7 +120,7 @@ while True:
         if PORT not in key_ports:
             msg = serialize_forward(key_ports)
             clientsocket.send(msg)
-            print(f"forwarding to {key_ports}")
+            logging.info(f"forwarding to {key_ports}")
 
         elif req[0:1] == constants.SET:
             value = req[KEY_LENGTH + 1:]
@@ -126,6 +130,7 @@ while True:
                 'value': value,
             }
 
+            logging.info(f"storing {key}={value} at lsn {lsn}")
             data[key] = new_record
             location = get_location(key)
             for p in get_ports(location):
@@ -144,12 +149,12 @@ while True:
 
         elif req[0:1] == constants.ADD_RECORD:
             new_records = deserialize_records(BytesIO(req[1:]))
-            print(f"adding new records: f{new_records}")
+            logging.info(f"adding new records: f{new_records}")
             data.update(new_records)
             store_data(DATA_FILE, data)
 
     elif req[0:1] == constants.REQUEST_PARTITIONS:
-        print("sending partition table")
+        logging.info("sending partition table")
         msg = serialize_add_nodes(partition_table)
         clientsocket.send(msg)
 
@@ -161,13 +166,13 @@ while True:
 
     elif req[0:1] == constants.REMOVE_NODE:
         port = deserialize_remove_node(req)
-        print(f"removing dead node: {port}")
+        logging.info(f"removing dead node: {port}")
         new_partition_table = {}
         for partition in partition_table:
             if partition_table[partition] != port:
                 new_partition_table[partition] = partition_table[partition]
         partition_table = new_partition_table
-        print(f"new partition table: {partition_table}")
+        logging.info(f"new partition table: {partition_table}")
         time.sleep(2)
         rebalance_data()
 
@@ -191,10 +196,10 @@ while True:
 #         response = receive(replica_socket)
 #         data.update(deserialize_records(BytesIO(response)))
 #         store_data(DATA_FILE, data)
-#         print("update from replica complete")
+#         logging.info("update from replica complete")
 #     except Exception as ex:
-#         print("replica is not available!")
-#         print(ex)
+#         logging.info("replica is not available!")
+#         logging.info(ex)
 #     finally:
 #         replica_socket.close()
 
