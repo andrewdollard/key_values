@@ -1,0 +1,3 @@
+[submodule "docker-compose-etcd"]
+	path = docker-compose-etcd
+	url = https://github.com/dwilbraham/docker-compose-etcd.git
