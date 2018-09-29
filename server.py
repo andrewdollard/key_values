@@ -1,14 +1,17 @@
 import logging
 import sys
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG, format='%(message)s')
+logging.getLogger("requests").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 import constants
 import os
 import pdb
 import pprint
 import random
+import requests
 import socket
-import sys
+import subprocess
 import time
 import threading
 from io import BytesIO
@@ -24,6 +27,8 @@ from serialization import KEY_LENGTH, KEYSPACE_SIZE,          \
 
 PORT = int(sys.argv[1])
 DATA_FILE = f"data/{PORT}"
+ETCD_HOST = subprocess.getoutput("cd docker-compose-etcd && bin/service_address.sh etcd0 2379")
+LSN_URL = f"http://{ETCD_HOST}/v2/keys/lsn"
 
 try:
     os.makedirs('data')
@@ -139,6 +144,16 @@ except:
     logging.info(f"could not listen on port {PORT}")
     exit
 
+def get_next_lsn():
+    while True:
+        resp = requests.get(LSN_URL)
+        current_lsn = int(resp.json()['node']['value'])
+        resp = requests.put(f"{LSN_URL}?prevValue={current_lsn}",
+                data={ 'value': current_lsn + 1 })
+        if resp.status_code == 200:
+            return current_lsn + 1
+
+
 s.listen(5)
 
 while True:
@@ -158,13 +173,13 @@ while True:
 
         elif req[0:1] == constants.SET:
             value = req[KEY_LENGTH + 1:]
-            lsn = max_lsn(data)
+            lsn = get_next_lsn()
             new_record = {
-                'lsn': lsn + 1,
+                'lsn': lsn,
                 'value': value,
             }
 
-            logging.info(f"setting {key}={value} at lsn {lsn + 1}")
+            logging.info(f"setting {key}={value} at lsn {lsn}")
             data[key] = new_record
             location = get_location(key)
             for p in get_ports(location):

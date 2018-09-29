@@ -1,3 +1,9 @@
+## To set up
+
+`git submodule init`
+`git submodule update --recursive`
+`pyton3 -m pip install requests`
+
 ## To run
 
 `./cluster.sh -d` : deletes data file, kills any existing TCP connections, starts 2 nodes (on ports 1234 & 1235) and runs a seed script
